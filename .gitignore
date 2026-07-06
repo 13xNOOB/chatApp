@@ -44,3 +44,4 @@ firebase-configs/firebase-service-account.json
 
 # Explicitly DO NOT ignore
 !firebase-configs/google-services.json
+
