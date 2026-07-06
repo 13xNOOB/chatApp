@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { errorHandler } from './middleware/errorHandler';
+import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
 
 dotenv.config();
 
@@ -16,6 +18,9 @@ app.use(express.json());
 app.get('/health', (req, res) => {
     res.json({ success: true, data: { status: 'healthy' } });
 });
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 
 // Register central error handler
 app.use(errorHandler);
