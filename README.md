@@ -1,46 +1,67 @@
 # Abroad Inquiry Chat Application
 
-## Project Overview
+## 1. Project Overview
 This repository contains a production-ready real-time chat application designed for a study abroad agency, facilitating reliable communication between students and advisors.
 
-This `README.md` serves as a living setup guide and must be updated sequentially as each major subsystem or feature is added to the repository.
+This `README.md` serves as a living setup guide and reflects the **current state** of the project.
 
-## Current Stack
-- **Node.js + Express** (Backend Foundation)
-- **TypeScript** (Strict Mode)
-- **MySQL 8** (Containerized)
+## 2. Current Stack
+- **Node.js + Express** (Backend API & Services)
+- **TypeScript** (Strict Mode for strong typing)
+- **MySQL 8** (Containerized Persistence Layer)
 - **Docker** (Local Database Orchestration)
+- **Jest & Supertest** (Test Framework)
 
 *(Note: Frontend and React Native configurations have not yet been initialized).*
 
-## Folder Structure
+## 3. Folder Structure
 ```text
 .
 ├── AGENTS.md                  # Project rules and conventions
-├── README.md                  # This setup guide
+├── API_SPEC.md                # Shared API data contract
+├── README.md                  # This living setup guide
 ├── backend/                   # Node.js Express backend
 │   ├── database.sql           # Database schema & initialization script
 │   ├── docker-compose.yml     # Docker MySQL orchestration
-│   ├── package.json           # Backend dependencies
+│   ├── package.json           # Backend dependencies and scripts
 │   ├── tsconfig.json          # TypeScript configurations
+│   ├── jest.config.js         # Jest test configuration
 │   └── src/
-│       ├── app.ts             # Express app setup and middleware
-│       ├── server.ts          # Server entry point
+│       ├── __tests__/         # Automated test suites
 │       ├── config/            # Database and env configs
-│       ├── middleware/        # Centralized error handlers
-│       ├── controllers/       # (Empty) Route controllers
-│       ├── repositories/      # (Empty) Raw SQL data access
-│       ├── routes/            # (Empty) API routes
-│       ├── services/          # (Empty) Business logic
+│       ├── controllers/       # HTTP request handlers and validation
+│       ├── middleware/        # Centralized auth & error handlers
+│       ├── repositories/      # Raw SQL data access layer
+│       ├── routes/            # API routing wiring
+│       ├── services/          # Business logic and coordination
 │       ├── sockets/           # (Empty) Socket.io event handlers
-│       └── utils/             # (Empty) Helper functions
+│       ├── utils/             # (Empty) Helper functions
+│       ├── app.ts             # Express app setup and middleware
+│       └── server.ts          # Server entry point
 └── frontend/                  # React Native frontend (Setup pending)
 ```
 
-## Backend Setup
-The backend currently consists of foundational scaffolding. It runs on `0.0.0.0:3000` and includes centralized error handling and security middleware (`helmet`, `cors`).
+## 4. Backend Setup
+The backend runs on `0.0.0.0:3000` and is strictly structured using the Controller → Service → Repository pattern. Security middleware (`helmet`, `cors`) and rate limiting on authentication routes are enforced.
 
-### Environment Variables
+## 5. Docker / MySQL Setup
+The backend utilizes Docker to spin up the local MySQL 8 database environment. The initialization script (`database.sql`) automatically provisions tables on first boot.
+
+### How to Verify Database Initialization
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Start the database container:
+   ```bash
+   docker-compose up -d
+   ```
+3. To verify the initialization was successful, check the container logs:
+   ```bash
+   docker logs abroad_inquiry_db
+   ```
+
+## 6. Environment Variables
 To configure the backend, create or edit the `backend/.env` file from the `.env.example` template:
 ```env
 PORT=3000
@@ -54,12 +75,12 @@ JWT_SECRET=your_jwt_secret_here
 GOOGLE_APPLICATION_CREDENTIALS=../firebase-configs/firebase-service-account.json
 ```
 
-### How to Run Backend
+## 7. How to Run the Backend
 1. Navigate to the backend directory:
    ```bash
    cd backend
    ```
-2. Install dependencies:
+2. Install dependencies (if needed):
    ```bash
    npm install
    ```
@@ -68,46 +89,37 @@ GOOGLE_APPLICATION_CREDENTIALS=../firebase-configs/firebase-service-account.json
    npm run dev
    ```
 
-## Docker / MySQL Setup
-The backend utilizes Docker to spin up the local MySQL 8 database environment. 
+## 8. How to Run TypeScript Build
+To statically analyze the project and compile the TypeScript code to JavaScript:
+```bash
+cd backend
+npm run build
+```
 
-### How to Verify Database Initialization
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Start the database container:
-   ```bash
-   docker-compose up -d
-   ```
-3. To verify the initialization was successful, check the container logs for successful database seating:
-   ```bash
-   docker logs abroad_inquiry_db
-   ```
-   *The container maps `database.sql` into `/docker-entrypoint-initdb.d/init.sql` effectively spinning up tables automatically on boot.*
+## 9. How to Run Tests
+To run the automated test suite:
+```bash
+cd backend
+npx jest
+```
 
-## Current Implementation Status
-- **Hygiene**: `.gitignore` populated, Git initialized, and AI instruction artifacts placed.
-- **Backend**: Foundational scaffolding initialized (`Express`, `helmet`, `cors`, centralized error handler). Database schema generated.
+## 10. Current Implemented Features
+- **Backend Foundation**: Express setup with robust error handling and security headers.
+- **Database Schema**: Optimized schema definitions for `users`, `messages`, and `device_tokens`.
+- **Docker MySQL**: Containerized local environment orchestrating the schema.
+- **Auth Features**: Endpoints for Register, Login, and Logout matching the API spec.
+- **JWT Auth Middleware**: Token generation and request validation.
+- **Protected User Directory**: Secure route explicitly excluding the querying user.
+- **Device Token Storage**: Automatically upserts device push tokens upon login.
+- **Mocked Persistence Test Strategy**: Isolated testing of business logic boundaries.
 
-## Git Commit History Expectations
-Commits should be strictly scoped, concise, and adhere to standard prefixes:
-- `feat:` (New features or major additions)
-- `fix:` (Bug fixes or rule alignment)
-- `test:` (Test implementations)
-- `docs:` (Updates to READMEs and rule documentation)
-- `chore:` (Scaffolding, maintenance, package updates)
+## 11. Planned Next Features
+- **Socket.io Authenticated Connections**: Real-time duplex channels.
+- **Message Persistence**: Saving chat history robustly.
+- **Cursor-paginated Chat History**: High-performance historical fetches.
+- **Android FCM Push Notifications**: Out-of-band delivery for offline users.
+- **React Native Frontend**: The mobile interface.
+- **Offline Queue**: Reliable local data synchronization on reconnect.
 
-## Notes for Targets
-- **Android S22**: Configuration guidelines and performance notes pending React Native setup.
-- **iOS Simulator**: Configuration guidelines and performance notes pending React Native setup.
-
----
-
-## Planned Features
-* **Auth**: JWT-based authentication, user registration, and login.
-* **Sockets**: Authenticated Socket.io duplex connections with memory safety and reconnect logic.
-* **FCM (Firebase Cloud Messaging)**: Push notifications configured for offline delivery.
-* **Frontend**: React Native CLI initialization, typed navigation, local storage (MMKV), and Gifted Chat UI.
-* **Offline Queue**: Optimistic UI updates with memory-bound local queueing for reliable message delivery.
-* **Tests**: Unit and integration tests for auth, message histories, and core backend logic.
+## 12. Testing Note
+The current automated tests purposefully **mock the database persistence layer** (`mysql2/promise` execution). This isolated approach ensures blazing-fast execution times, preventing environment bottlenecks and maximizing rapid feedback during this assessment cycle. Full Docker-backed DB integration tests can be seamlessly integrated at a later stage if deeper I/O validation is required.
