@@ -58,8 +58,8 @@ describe('Messages API', () => {
             expect(res.body.data.pagination.nextCursor).toBe(101);
 
             expect(pool.execute).toHaveBeenCalledWith(
-                expect.stringContaining('ORDER BY id DESC LIMIT ?'),
-                [1, 1, 1] // [userId, userId, limit]
+                expect.stringContaining('ORDER BY id DESC LIMIT 1'),
+                [1, 2, 2, 1] // [userId1, userId2, userId2, userId1]
             );
         });
 
@@ -76,7 +76,7 @@ describe('Messages API', () => {
             
             expect(pool.execute).toHaveBeenCalledWith(
                 expect.stringContaining('AND id < ?'),
-                [1, 1, 101, 20]
+                [1, 2, 2, 1, 101]
             );
             expect(pool.execute).not.toHaveBeenCalledWith(
                 expect.stringContaining('OFFSET'),

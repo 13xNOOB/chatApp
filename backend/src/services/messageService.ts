@@ -25,8 +25,8 @@ export const messageService = {
         return message;
     },
 
-    async getHistory(userId: number, cursor?: number, limit: number = 20) {
-        const messages = await messageRepository.getConversationMessages(userId, cursor, limit);
+    async getHistory(userId1: number, userId2: number, cursor?: number, limit: number = 20) {
+        const messages = await messageRepository.getConversationMessages(userId1, userId2, cursor, limit);
         
         let nextCursor = null;
         if (messages.length > 0 && messages.length === limit) {

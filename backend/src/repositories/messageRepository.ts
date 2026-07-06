@@ -42,10 +42,12 @@ export const messageRepository = {
     },
 
     async getConversationMessages(
-        userId: number,
+        userId1: number,
+        userId2: number,
         cursor?: number,
         limit: number = 20
     ): Promise<Message[]> {
+        const safeLimit = Math.max(1, Math.min(100, Number(limit) || 20));
         let query = `
             SELECT 
                 id, 
@@ -56,17 +58,16 @@ export const messageRepository = {
                 created_at as createdAt, 
                 updated_at as updatedAt
             FROM messages 
-            WHERE (sender_id = ? OR receiver_id = ?)
+            WHERE ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?))
         `;
-        const params: any[] = [userId, userId];
+        const params: any[] = [userId1, userId2, userId2, userId1];
 
         if (cursor) {
             query += ` AND id < ?`;
             params.push(cursor);
         }
 
-        query += ` ORDER BY id DESC LIMIT ?`;
-        params.push(limit);
+        query += ` ORDER BY id DESC LIMIT ${safeLimit}`;
 
         const [rows] = await pool.execute<RowDataPacket[]>(query, params);
         
