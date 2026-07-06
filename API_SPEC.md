@@ -310,6 +310,7 @@ io(SOCKET_URL, {
 ```
 
 Unauthenticated socket connections must be rejected.
+Note: Multiple concurrent socket connections per user are natively supported (e.g. from multiple tabs or devices).
 
 ---
 

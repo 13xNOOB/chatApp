@@ -112,12 +112,12 @@ npx jest
 - **Protected User Directory**: Secure route explicitly excluding the querying user.
 - **Device Token Storage**: Automatically upserts device push tokens upon login.
 - **Mocked Persistence Test Strategy**: Isolated testing of business logic boundaries.
-- **Authenticated Socket.io Setup**: Real-time duplex channels secured via JWT socket payloads.
-- **Online User Tracking**: Real-time broadcast map maintaining `user_online` and `user_offline` statuses.
+- **Authenticated Socket.io Setup**: Real-time duplex channels secured via JWT socket payloads. Multiple concurrent connections per user are supported natively.
+- **Online User Tracking**: Real-time broadcast map maintaining `user_online` and `user_offline` statuses based on aggregate socket count.
 - **Message History Endpoint**: Protected REST endpoint (`GET /api/messages/:userId`).
 - **Cursor Pagination**: High-performance pagination leveraging `id < cursor` rather than sluggish `OFFSET`.
-- **Android FCM Backend Push Service**: Automated notifications triggered when an offline user receives a chat.
-- **Artillery Load Test**: Socket.io load simulations available in `backend/load-test.yml`.
+- **Android FCM Backend Push Service**: Automated notifications triggered when an offline user receives a chat. *(Note: Requires a real Android device and correctly configured google-services.json to verify end-to-end delivery).*
+- **Artillery Load Test**: Socket.io load simulations available in `backend/load-test.yml` (requires a valid JWT token via environment variable).
 
 ## 11. Planned Next Features
 - **React Native Frontend**: The mobile interface.

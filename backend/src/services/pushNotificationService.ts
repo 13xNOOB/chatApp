@@ -8,7 +8,7 @@ import { deviceTokenRepository } from '../repositories/deviceTokenRepository';
 let isFirebaseInitialized = false;
 
 try {
-    const serviceAccountPath = path.resolve(__dirname, '../../../firebase-configs/firebase-service-account.json');
+    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.resolve(process.cwd(), '../firebase-configs/firebase-service-account.json');
     initializeApp({
         credential: cert(require(serviceAccountPath))
     });

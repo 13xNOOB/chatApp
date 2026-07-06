@@ -86,5 +86,12 @@ export const messageRepository = {
         `;
         
         await pool.execute(query, [...messageIds, receiverId]);
+    },
+
+    async updateMessageStatus(messageId: number, status: 'sent' | 'delivered' | 'seen'): Promise<void> {
+        await pool.execute(
+            `UPDATE messages SET status = ? WHERE id = ? AND status != 'seen'`,
+            [status, messageId]
+        );
     }
 };

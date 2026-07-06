@@ -71,9 +71,12 @@ export const socketManager = (server: HttpServer) => {
                     const receiverSockets = onlineUsers.get(receiverId);
                     receiverSockets?.forEach(socketId => {
                         io.to(socketId).emit('receive_message', {
-                            message: savedMessage
+                            message: { ...savedMessage, status: 'delivered' }
                         });
                     });
+                    
+                    // Mark as delivered in the background
+                    messageService.markMessageAsDelivered(savedMessage.id).catch(console.error);
                 }
             } catch (err) {
                 console.error('Socket send_message error', err);

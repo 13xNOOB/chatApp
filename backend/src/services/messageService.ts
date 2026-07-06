@@ -45,5 +45,9 @@ export const messageService = {
 
     async markMessagesAsSeen(messageIds: number[], receiverId: number) {
         await messageRepository.updateMessagesSeen(messageIds, receiverId);
+    },
+
+    async markMessageAsDelivered(messageId: number) {
+        await messageRepository.updateMessageStatus(messageId, 'delivered');
     }
 };

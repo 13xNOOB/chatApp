@@ -1,3 +1,7 @@
+# To run this load test, you must generate a valid JWT token from the /api/auth/login endpoint.
+# Then, pass it using an environment variable like so:
+# TOKEN="your-jwt-token" npx artillery run load-test.yml
+
 config:
   target: "http://localhost:3000"
   phases:
@@ -11,6 +15,9 @@ scenarios:
   - name: "Socket.io message sending"
     engine: "socketio"
     flow:
+      - connect:
+          auth:
+            token: "{{ $processEnvironment.TOKEN }}"
       - emit:
           channel: "send_message"
           data:
