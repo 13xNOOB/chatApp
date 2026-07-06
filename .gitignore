@@ -1,0 +1,46 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnpm-debug.log
+
+# Build/dist folders
+dist/
+build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# React Native / Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
+*.jks
+*.keystore
+
+# React Native / iOS
+ios/build/
+ios/Pods/
+ios/DerivedData/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+
+# Firebase secrets
+firebase-configs/firebase-service-account.json
+
+# Explicitly DO NOT ignore
+!firebase-configs/google-services.json
