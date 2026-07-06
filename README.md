@@ -144,6 +144,12 @@ To run the app on a physical device, the frontend must point to your Mac Mini's 
    npm run ios
    ```
 
+### Native Build Notes
+- **Android**: `react-native-mmkv` requires `react-native-nitro-modules`.
+- **Android physical device**: `adb reverse` can be used for Metro/backend ports if USB debugging is active.
+- **iOS Simulator**: Firebase pods use targeted modular headers (`:modular_headers => true`) in the Podfile to resolve module map conflicts cleanly without globally altering all pods.
+- **iOS Push Notifications / APNs** are intentionally excluded from this assessment.
+
 ## 9. How to Run TypeScript Build
 To statically analyze the project and compile the TypeScript code to JavaScript:
 ```bash

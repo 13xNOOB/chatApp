@@ -22,6 +22,7 @@
     "react-native": "0.86.0",
     "react-native-gifted-chat": "^3.4.0",
     "react-native-mmkv": "^4.3.2",
+    "react-native-nitro-modules": "^0.36.1",
     "react-native-safe-area-context": "^5.8.0",
     "react-native-screens": "^4.25.2",
     "socket.io-client": "^4.8.3"
