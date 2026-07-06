@@ -44,6 +44,8 @@ The backend currently consists of foundational scaffolding. It runs on `0.0.0.0:
 To configure the backend, create or edit the `backend/.env` file from the `.env.example` template:
 ```env
 PORT=3000
+# Use DB_HOST=localhost for host-machine local development
+# Use DB_HOST=mysql for Docker documentation/config where applicable
 DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=root
