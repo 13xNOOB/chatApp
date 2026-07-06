@@ -24,12 +24,14 @@ Stack:
 - Use environment variables for configuration.
 - Never hardcode secrets.
 - Never modify Firebase config files unless explicitly requested.
+- Backend and frontend implementations must follow `API_SPEC.md`. Do not change API routes, socket events, payload shapes, or response formats without updating `API_SPEC.md` in the same commit.
 
 ## Required Reading
 Before major implementation work, read:
 - `README_ARCHITECTURE.md`
 - `README_EVOLUTION.md`
 - `PROMPT_RULES.md`
+- `API_SPEC.md`
 
 ## Architecture
 Follow existing architecture unless explicitly instructed otherwise.
