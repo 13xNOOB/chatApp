@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthResponse, RegisterResponse } from '../types';
 import { storageService } from '../services/storage';
 import { authApi } from '../api/authApi';
+import { notificationService } from '../services/notificationService';
 
 interface AuthContextData {
     user: User | null;
@@ -32,7 +33,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        const response = await authApi.login(email, password);
+        const deviceToken = await notificationService.getFcmToken() || undefined;
+        const platform = deviceToken ? notificationService.getDevicePlatform() : undefined;
+        
+        const response = await authApi.login(email, password, deviceToken, platform);
         if (response.success && response.data) {
             const { token: newToken, user: newUser } = response.data;
             storageService.setToken(newToken);
@@ -51,7 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const logout = async () => {
         try {
-            await authApi.logout();
+            const deviceToken = await notificationService.getFcmToken() || undefined;
+            await authApi.logout(deviceToken);
         } catch (e) {
             // Ignore network errors on logout
         } finally {

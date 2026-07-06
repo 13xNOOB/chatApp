@@ -122,6 +122,12 @@ To run the app on a physical device, the frontend must point to your Mac Mini's 
    npm install
    ```
 
+### Firebase Setup
+- **Android FCM Setup**: Complete. The device token flow is fully integrated.
+- **`google-services.json`**: Must be placed in `firebase-configs/google-services.json`. The build scripts automatically copy it to the Android project before building.
+- **Android Push**: Requires testing on a real Android device (e.g. Samsung S22).
+- **iOS Push**: Intentionally excluded from this assessment. The iOS Simulator is configured to bypass FCM safely without crashing, and no Apple Developer/APNs setup is required.
+
 ### Run on Android (Samsung Galaxy S22)
 > [!IMPORTANT]
 > Android is the primary target for full-feature push notifications.
