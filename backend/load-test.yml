@@ -1,0 +1,20 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "Sustained load"
+  engines:
+    socketio: {}
+
+scenarios:
+  - name: "Socket.io message sending"
+    engine: "socketio"
+    flow:
+      - emit:
+          channel: "send_message"
+          data:
+            clientTempId: "temp-uuid-{{ $randomString() }}"
+            receiverId: 2
+            message: "Hello from artillery {{ $randomString() }}"
+      - think: 1

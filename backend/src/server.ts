@@ -1,5 +1,6 @@
 import app from './app';
 import dotenv from 'dotenv';
+import { socketManager } from './sockets/socketManager';
 
 dotenv.config();
 
@@ -9,6 +10,8 @@ const HOST = '0.0.0.0';
 const server = app.listen(PORT as number, HOST, () => {
     console.log(`Server is running on http://${HOST}:${PORT}`);
 });
+
+socketManager(server);
 
 // Setup graceful shutdown if needed
 process.on('SIGINT', () => {
