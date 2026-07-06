@@ -8,11 +8,10 @@ This `README.md` serves as a living setup guide and reflects the **current state
 ## 2. Current Stack
 - **Node.js + Express** (Backend API & Services)
 - **TypeScript** (Strict Mode for strong typing)
+- **React Native** (Mobile Frontend)
 - **MySQL 8** (Containerized Persistence Layer)
 - **Docker** (Local Database Orchestration)
 - **Jest & Supertest** (Test Framework)
-
-*(Note: Frontend and React Native configurations have not yet been initialized).*
 
 ## 3. Folder Structure
 ```text
@@ -37,8 +36,21 @@ This `README.md` serves as a living setup guide and reflects the **current state
 │       ├── sockets/           # (Empty) Socket.io event handlers
 │       ├── utils/             # (Empty) Helper functions
 │       ├── app.ts             # Express app setup and middleware
-│       └── server.ts          # Server entry point
-└── frontend/                  # React Native frontend (Setup pending)
+       └── server.ts          # Server entry point
+└── frontend/                  # React Native frontend
+    ├── android/               # Android native project files
+    ├── ios/                   # iOS native project files
+    ├── src/
+    │   ├── api/               # Axios clients and endpoints
+    │   ├── components/        # Reusable UI components
+    │   ├── config/            # Env and config settings
+    │   ├── context/           # Auth and global state
+    │   ├── navigation/        # React Navigation stack
+    │   ├── screens/           # Auth and App UI screens
+    │   ├── services/          # MMKV storage and logic
+    │   ├── types/             # TypeScript interfaces
+    │   └── utils/             # Helper functions (e.g., Firebase stubs)
+    └── package.json           # Frontend dependencies
 ```
 
 ## 4. Backend Setup
@@ -46,6 +58,9 @@ The backend runs on `0.0.0.0:3000` and is strictly structured using the Controll
 
 ## 5. Docker / MySQL Setup
 The backend utilizes Docker to spin up the local MySQL 8 database environment. The initialization script (`database.sql`) automatically provisions tables on first boot.
+
+> [!NOTE]
+> The MySQL container binds to host port `3307` instead of `3306` to avoid conflicts with any local native MySQL instances running on the Mac Mini.
 
 ### How to Verify Database Initialization
 1. Navigate to the backend directory:
@@ -89,7 +104,47 @@ GOOGLE_APPLICATION_CREDENTIALS=../firebase-configs/firebase-service-account.json
    npm run dev
    ```
 
-## 8. How to Run TypeScript Build
+## 8. Frontend Setup & Run Instructions
+
+### Mac Mini LAN IP Setup
+To run the app on a physical device, the frontend must point to your Mac Mini's local network IP.
+1. Find your Mac Mini's LAN IP by running: `ipconfig getifaddr en0`
+2. Open `frontend/src/config/env.ts` and replace `REPLACE_WITH_MAC_MINI_LAN_IP` with your actual IP.
+3. Ensure both the Mac Mini and your Samsung S22 are connected to the same Wi-Fi network.
+
+### Install Dependencies
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install Node dependencies:
+   ```bash
+   npm install
+   ```
+
+### Run on Android (Samsung Galaxy S22)
+> [!IMPORTANT]
+> Android is the primary target for full-feature push notifications.
+1. Connect your S22 via USB and ensure USB Debugging is enabled.
+2. Run the Android build:
+   ```bash
+   npm run android
+   ```
+*(Note: A script automatically safely copies `google-services.json` into the android directory prior to building, if present).*
+
+### Run on iOS Simulator
+> [!NOTE]
+> The iOS Simulator is configured exclusively for UI and API testing. APNs and physical Apple Developer setups are intentionally skipped.
+1. Install CocoaPods:
+   ```bash
+   cd ios && bundle install && bundle exec pod install && cd ..
+   ```
+2. Run the iOS build:
+   ```bash
+   npm run ios
+   ```
+
+## 9. How to Run TypeScript Build
 To statically analyze the project and compile the TypeScript code to JavaScript:
 ```bash
 cd backend
@@ -103,7 +158,10 @@ cd backend
 npx jest
 ```
 
-## 10. Current Implemented Features
+## 11. Current Implemented Features
+- **Frontend Foundation**: React Native CLI setup with React Navigation.
+- **MMKV Storage**: High-performance local storage for JWT tokens.
+- **Auth Flow**: Login and Registration screens with seamless context switching and API integration.
 - **Backend Foundation**: Express setup with robust error handling and security headers.
 - **Database Schema**: Optimized schema definitions for `users`, `messages`, and `device_tokens`.
 - **Docker MySQL**: Containerized local environment orchestrating the schema.
@@ -119,9 +177,9 @@ npx jest
 - **Android FCM Backend Push Service**: Automated notifications triggered when an offline user receives a chat. *(Note: Requires a real Android device and correctly configured google-services.json to verify end-to-end delivery).*
 - **Artillery Load Test**: Socket.io load simulations available in `backend/load-test.yml` (requires a valid JWT token via environment variable).
 
-## 11. Planned Next Features
-- **React Native Frontend**: The mobile interface.
+## 12. Planned Next Features
+- **Chat UI**: Implement the real `react-native-gifted-chat` UI inside the ChatScreen.
 - **Offline Queue**: Reliable local data synchronization on reconnect.
 
-## 12. Testing Note
+## 13. Testing Note
 The current automated tests purposefully **mock the database persistence layer** (`mysql2/promise` execution). This isolated approach ensures blazing-fast execution times, preventing environment bottlenecks and maximizing rapid feedback during this assessment cycle. Full Docker-backed DB integration tests can be seamlessly integrated at a later stage if deeper I/O validation is required.
