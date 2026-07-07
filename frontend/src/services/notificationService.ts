@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 
 export const notificationService = {
@@ -9,6 +9,16 @@ export const notificationService = {
         }
 
         try {
+            if (Platform.OS === 'android' && Platform.Version >= 33) {
+                const granted = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+                );
+                if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+                    console.warn('POST_NOTIFICATIONS permission denied');
+                    return false;
+                }
+            }
+
             const authStatus = await messaging().requestPermission();
             const enabled =
                 authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
@@ -16,8 +26,8 @@ export const notificationService = {
             
             return enabled;
         } catch (e) {
-            console.log('Failed to request notification permission:', e);
-            return false;
+            console.error('Failed to request notification permission:', e);
+            throw e; // Don't swallow error
         }
     },
 
@@ -30,15 +40,17 @@ export const notificationService = {
             // Check if permission is granted first
             const hasPermission = await this.requestNotificationPermission();
             if (!hasPermission) {
+                console.warn('Cannot get FCM token without permission');
                 return null;
             }
 
             // Await FCM token
             const token = await messaging().getToken();
+            console.log('FCM token fetched successfully:', token);
             return token;
         } catch (e) {
-            console.log('Failed to get FCM token:', e);
-            return null;
+            console.error('Failed to get FCM token:', e);
+            throw e; // Don't swallow error
         }
     },
 

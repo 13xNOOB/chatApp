@@ -33,8 +33,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        const deviceToken = await notificationService.getFcmToken() || undefined;
+        let deviceToken: string | undefined;
+        try {
+            deviceToken = await notificationService.getFcmToken() || undefined;
+        } catch (e) {
+            console.error('FCM token fetch failed during login:', e);
+        }
+        
         const platform = deviceToken ? notificationService.getDevicePlatform() : undefined;
+        
+        console.log('[AuthContext] Attempting login with deviceToken:', deviceToken, 'platform:', platform);
         
         const response = await authApi.login(email, password, deviceToken, platform);
         if (response.success && response.data) {
@@ -55,7 +63,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const logout = async () => {
         try {
-            const deviceToken = await notificationService.getFcmToken() || undefined;
+            let deviceToken: string | undefined;
+            try {
+                deviceToken = await notificationService.getFcmToken() || undefined;
+            } catch (e) {
+                console.error('FCM token fetch failed during logout:', e);
+            }
             await authApi.logout(deviceToken);
         } catch (e) {
             // Ignore network errors on logout

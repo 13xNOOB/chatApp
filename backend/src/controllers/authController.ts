@@ -44,6 +44,7 @@ export const authController = {
 
     async login(req: Request, res: Response, next: NextFunction) {
         try {
+            console.log('[AuthController] Login request body:', req.body);
             const { email, password, deviceToken, platform } = req.body;
             
             if (!email || !password) {
