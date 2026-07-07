@@ -27,7 +27,7 @@ export const notificationService = {
             return enabled;
         } catch (e) {
             console.error('Failed to request notification permission:', e);
-            throw e; // Don't swallow error
+            return false;
         }
     },
 
@@ -50,7 +50,7 @@ export const notificationService = {
             return token;
         } catch (e) {
             console.error('Failed to get FCM token:', e);
-            throw e; // Don't swallow error
+            return null;
         }
     },
 
