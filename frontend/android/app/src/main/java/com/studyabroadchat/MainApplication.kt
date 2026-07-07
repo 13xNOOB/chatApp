@@ -1,4 +1,4 @@
-package com.abroadinquiry
+package com.studyabroadchat
 
 import android.app.Application
 import com.facebook.react.PackageList

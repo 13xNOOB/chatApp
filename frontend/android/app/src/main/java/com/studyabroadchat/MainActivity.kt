@@ -1,4 +1,4 @@
-package com.abroadinquiry
+package com.studyabroadchat
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

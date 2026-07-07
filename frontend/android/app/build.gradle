@@ -77,9 +77,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.abroadinquiry"
+    namespace "com.studyabroadchat"
     defaultConfig {
-        applicationId "com.abroadinquiry"
+        applicationId "com.studyabroadchat"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
