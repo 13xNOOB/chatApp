@@ -1,18 +1,38 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { AppNavigationProp } from '../../navigation/types';
+import { userApi } from '../../api/userApi';
+import { User } from '../../types';
 
 export default function UserListScreen() {
     const { logout, user } = useAuth();
     const navigation = useNavigation<AppNavigationProp>();
+    
+    const [users, setUsers] = useState<User[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    // Placeholder data
-    const users = [
-        { id: 2, name: 'Alice' },
-        { id: 3, name: 'Bob' }
-    ];
+    useEffect(() => {
+        let isMounted = true;
+        const fetchUsers = async () => {
+            try {
+                const response = await userApi.getUsers();
+                if (response.success && isMounted) {
+                    setUsers(response.data);
+                }
+            } catch (e) {
+                console.error('Failed to fetch users:', e);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
+        fetchUsers();
+        
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     return (
         <View style={styles.container}>
@@ -23,19 +43,25 @@ export default function UserListScreen() {
                 </TouchableOpacity>
             </View>
             
-            <FlatList 
-                data={users}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                    <TouchableOpacity 
-                        style={styles.userItem}
-                        onPress={() => navigation.navigate('Chat', { userId: item.id, userName: item.name })}
-                    >
-                        <Text style={styles.userName}>{item.name}</Text>
-                    </TouchableOpacity>
-                )}
-                ListEmptyComponent={<Text style={styles.emptyText}>No users found</Text>}
-            />
+            {loading ? (
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                    <ActivityIndicator size="large" />
+                </View>
+            ) : (
+                <FlatList 
+                    data={users}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity 
+                            style={styles.userItem}
+                            onPress={() => navigation.navigate('Chat', { userId: item.id, userName: item.name, timezone: item.timezone })}
+                        >
+                            <Text style={styles.userName}>{item.name}</Text>
+                        </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={<Text style={styles.emptyText}>No users found</Text>}
+                />
+            )}
         </View>
     );
 }

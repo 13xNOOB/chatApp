@@ -39,3 +39,21 @@ export interface Message {
     createdAt: string;
     clientTempId?: string;
 }
+
+export interface Pagination {
+    nextCursor: number | null;
+    hasMore: boolean;
+    limit: number;
+}
+
+export interface GetMessagesResponse {
+    success: boolean;
+    data?: {
+        messages: Message[];
+        pagination: Pagination;
+    };
+    error?: {
+        code: string;
+        message: string;
+    };
+}

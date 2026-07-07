@@ -7,7 +7,7 @@ export type AuthStackParamList = {
 
 export type AppStackParamList = {
     UserList: undefined;
-    Chat: { userId: number; userName: string };
+    Chat: { userId: number; userName: string; timezone?: string };
 };
 
 export type AuthNavigationProp = NativeStackNavigationProp<AuthStackParamList>;
