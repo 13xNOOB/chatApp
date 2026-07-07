@@ -1,6 +1,7 @@
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
+import { ChatProvider } from './src/context/ChatContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { notificationService } from './src/services/notificationService';
 
@@ -14,7 +15,9 @@ function App(): React.JSX.Element {
     return (
         <SafeAreaProvider>
             <AuthProvider>
-                <RootNavigator />
+                <ChatProvider>
+                    <RootNavigator />
+                </ChatProvider>
             </AuthProvider>
         </SafeAreaProvider>
     );

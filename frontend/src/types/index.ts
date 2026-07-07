@@ -29,3 +29,13 @@ export interface RegisterResponse {
         message: string;
     };
 }
+
+export interface Message {
+    id: number;
+    senderId: number;
+    receiverId: number;
+    message: string;
+    status: 'pending' | 'sent' | 'delivered' | 'seen' | 'failed';
+    createdAt: string;
+    clientTempId?: string;
+}
