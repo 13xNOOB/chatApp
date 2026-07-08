@@ -42,9 +42,9 @@ export default function UserListScreen() {
                     <Text style={styles.logoutText}>Logout</Text>
                 </TouchableOpacity>
             </View>
-            
-            <View style={{ backgroundColor: 'yellow', padding: 10, alignItems: 'center' }}>
-                <Text style={{ fontWeight: 'bold', color: 'black' }}>
+
+            <View style={{ backgroundColor: 'yellow', padding: 10 }}>
+                <Text style={{ fontWeight: 'bold', color: 'black', textAlign: 'center' }}>
                     NEW UI ACTIVE — {new Date().toISOString()}
                 </Text>
             </View>
