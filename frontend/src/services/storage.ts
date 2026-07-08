@@ -43,6 +43,18 @@ export const storageService = {
             return [];
         }
     },
+    saveCachedContacts(userId: number, contacts: User[]) {
+        storage.set(`cachedContacts_${userId}`, JSON.stringify(contacts));
+    },
+    getCachedContacts(userId: number): User[] | null {
+        const str = storage.getString(`cachedContacts_${userId}`);
+        if (!str) return null;
+        try {
+            return JSON.parse(str);
+        } catch {
+            return null;
+        }
+    },
     clearAll() {
         storage.clearAll();
     }

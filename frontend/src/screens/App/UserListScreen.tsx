@@ -7,25 +7,30 @@ import { userApi } from '../../api/userApi';
 import { User } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
 import { useChat } from '../../context/ChatContext';
+import { storageService } from '../../services/storage';
 
 export default function UserListScreen() {
     const { logout, user } = useAuth();
     const navigation = useNavigation<AppNavigationProp>();
     const { colors, isDark, setTheme, theme } = useTheme();
-    const { onlineUsers, typingUsers, unreadCounts, setUnreadCounts } = useChat();
+    const { onlineUsers, typingUsers, unreadCounts, setUnreadCounts, isNetworkConnected } = useChat();
     
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isShowingCached, setIsShowingCached] = useState(false);
 
     const fetchUsers = useCallback(async (isRefresh = false) => {
+        if (!user?.id) return;
         try {
             setError(null);
-            if (!isRefresh) setLoading(true);
+            if (!isRefresh && users.length === 0) setLoading(true);
             const response = await userApi.getUsers();
             if (response.success && response.data) {
                 setUsers(response.data);
+                setIsShowingCached(false);
+                storageService.saveCachedContacts(user.id, response.data);
                 
                 // Hydrate unread counts
                 const initialUnreadCounts: Record<number, number> = {};
@@ -34,18 +39,41 @@ export default function UserListScreen() {
                         initialUnreadCounts[u.id] = u.unreadCount;
                     }
                 });
-                setUnreadCounts(initialUnreadCounts);
+                setUnreadCounts(prev => ({ ...initialUnreadCounts, ...prev }));
             } else {
-                setError('Failed to fetch users');
+                throw new Error('Failed to fetch users');
             }
         } catch (e: any) {
             console.error('Failed to fetch users:', e);
-            setError(e?.message || 'Network error occurred while fetching users');
+            
+            if (!isNetworkConnected || e.message === 'Network Error' || e.message.includes('fetch')) {
+                const cached = storageService.getCachedContacts(user.id);
+                if (cached && cached.length > 0) {
+                    setUsers(cached);
+                    setIsShowingCached(true);
+                    
+                    const initialUnreadCounts: Record<number, number> = {};
+                    cached.forEach(u => {
+                        if (u.unreadCount) {
+                            initialUnreadCounts[u.id] = u.unreadCount;
+                        }
+                    });
+                    setUnreadCounts(prev => ({ ...initialUnreadCounts, ...prev }));
+                    return; // Skip setting error since we loaded cache
+                }
+            }
+
+            if (!isRefresh && users.length === 0) {
+                setError(!isNetworkConnected 
+                    ? 'No cached contacts available. Connect to the internet once to load contacts.' 
+                    : (e?.message || 'Network error occurred while fetching users')
+                );
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [setUnreadCounts]);
+    }, [setUnreadCounts, isNetworkConnected, user?.id, users.length]);
 
     useEffect(() => {
         fetchUsers();
@@ -150,6 +178,12 @@ export default function UserListScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {(!isNetworkConnected && isShowingCached) && (
+                <View style={[styles.offlineBanner, { backgroundColor: '#f39c12' }]}>
+                    <Text style={styles.offlineBannerText}>Offline — showing cached contacts</Text>
+                </View>
+            )}
             
             {loading && !refreshing ? (
                 <View style={styles.centerContainer}>
@@ -336,6 +370,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     unreadBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    offlineBanner: {
+        padding: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    offlineBannerText: {
         color: '#fff',
         fontSize: 12,
         fontWeight: 'bold',
