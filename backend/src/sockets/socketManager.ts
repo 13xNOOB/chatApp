@@ -38,6 +38,11 @@ export const socketManager = (server: HttpServer) => {
         }
         onlineUsers.get(userId)!.add(socket.id);
 
+        // Hydrate initial online state for this connecting socket
+        socket.emit('online_users', {
+            userIds: Array.from(onlineUsers.keys())
+        });
+
         // Broadcast user_online
         io.emit('user_online', { userId });
 

@@ -481,6 +481,22 @@ Note: Multiple concurrent socket connections per user are natively supported (e.
 
 ---
 
+## Server Emits: `online_users`
+
+### Payload
+
+```json
+{
+  "userIds": [1, 2, 3]
+}
+```
+
+### Server Behavior
+
+* Emit only to the newly connected socket upon successful connection to hydrate the initial online state.
+
+---
+
 # Database Contract
 
 ## users
