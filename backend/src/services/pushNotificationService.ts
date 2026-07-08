@@ -13,8 +13,9 @@ try {
         credential: cert(require(serviceAccountPath))
     });
     isFirebaseInitialized = true;
-} catch (error) {
-    console.warn('Firebase Admin initialization skipped (or failed). Push notifications will not be sent.', error);
+    console.log('[Firebase] Firebase Admin initialized successfully.');
+} catch (error: any) {
+    console.warn('[Firebase] Firebase Admin initialization skipped (or failed). Push notifications will not be sent. Reason:', error?.message || 'Unknown error');
 }
 
 export const pushNotificationService = {
