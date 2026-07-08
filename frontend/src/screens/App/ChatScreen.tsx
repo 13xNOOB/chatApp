@@ -1,12 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { GiftedChat, IMessage, Bubble, BubbleProps } from 'react-native-gifted-chat';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { 
+    View, 
+    Text, 
+    StyleSheet, 
+    TextInput, 
+    Pressable, 
+    KeyboardAvoidingView, 
+    Platform,
+    FlatList,
+    ActivityIndicator,
+    Alert,
+    RefreshControl
+} from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { AppStackParamList, AppNavigationProp } from '../../navigation/types';
-import { useChat } from '../../context/ChatContext';
 import { messageApi } from '../../api/messageApi';
 import { useAuth } from '../../context/AuthContext';
+import { useChat } from '../../context/ChatContext';
 import { Message as BackendMessage } from '../../types';
+import { useTheme } from '../../context/ThemeContext';
 
 type ChatScreenRouteProp = RouteProp<AppStackParamList, 'Chat'>;
 
@@ -14,115 +26,101 @@ export default function ChatScreen() {
     const route = useRoute<ChatScreenRouteProp>();
     const navigation = useNavigation<AppNavigationProp>();
     const { userId: receiverId, userName, timezone } = route.params;
-    
     const { user: currentUser } = useAuth();
-    const { socket, onlineUsers, sendMessage, markSeen, sendTypingStart, sendTypingStop } = useChat();
+    const { socket, sendMessage, markSeen, sendTypingStart, sendTypingStop, setActiveChatUserId, clearUnreadCount } = useChat();
+    const { colors, isDark } = useTheme();
 
-    const [messages, setMessages] = useState<IMessage[]>([]);
+    const [messages, setMessages] = useState<BackendMessage[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [inputText, setInputText] = useState('');
+    
+    // Pagination states
     const [nextCursor, setNextCursor] = useState<number | null>(null);
     const [hasMore, setHasMore] = useState(false);
-    const [isLoadingEarlier, setIsLoadingEarlier] = useState(false);
-    const [isTyping, setIsTyping] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     
-    // Derived states
-    const isOnline = onlineUsers.has(receiverId);
+    // Typing indicator state
+    const [isReceiverTyping, setIsReceiverTyping] = useState(false);
+    const receiverTypingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const myTypingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+    const pendingTimeouts = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
+    const flatListRef = useRef<FlatList>(null);
 
-    // Header updates
+    // Header update
     useEffect(() => {
-        let localTimeStr = '';
+        let titleStr = userName;
         if (timezone) {
-            try {
-                const date = new Date();
-                const formatter = new Intl.DateTimeFormat('en-US', {
-                    timeZone: timezone,
-                    hour: 'numeric',
-                    minute: 'numeric',
-                    hour12: true
-                });
-                localTimeStr = ` • ${formatter.format(date)}`;
-            } catch {
-                // Ignore timezone errors
-            }
+            titleStr += ` (${timezone})`;
         }
-
         navigation.setOptions({
-            headerTitle: () => (
-                <View style={styles.headerContainer}>
-                    <Text style={styles.headerTitle}>{userName}</Text>
-                    <Text style={styles.headerSubtitle}>
-                        {isOnline ? 'Online' : 'Offline'}{localTimeStr}
-                    </Text>
-                </View>
-            ),
+            headerTitle: titleStr,
         });
-    }, [navigation, userName, isOnline, timezone]);
+    }, [navigation, userName, timezone]);
 
-    // Format backend message to GiftedChat message
-    const formatMessage = useCallback((msg: BackendMessage): IMessage => {
-        return {
-            _id: msg.clientTempId && (msg.status === 'pending' || msg.status === 'failed') ? msg.clientTempId : msg.id.toString(),
-            text: msg.message,
-            createdAt: new Date(msg.createdAt),
-            user: {
-                _id: msg.senderId,
-                name: msg.senderId === currentUser?.id ? currentUser?.name : userName,
-            },
-            sent: msg.status !== 'pending' && msg.status !== 'failed',
-            received: msg.status === 'delivered' || msg.status === 'seen',
-            pending: msg.status === 'pending',
-            // We use a custom attribute to track the exact status for renderTicks
-            status: msg.status 
-        } as IMessage & { status: string };
-    }, [currentUser, userName]);
-
-    // Initial Fetch
+    // Active chat state management
     useEffect(() => {
-        let isMounted = true;
-        const fetchInitial = async () => {
-            try {
-                const res = await messageApi.getMessages(receiverId);
-                if (res.success && res.data && isMounted) {
-                    // Backend returns chronological. GiftedChat wants reverse chronological.
-                    const formatted = res.data.messages.map(formatMessage).reverse();
-                    setMessages(formatted);
-                    
-                    setNextCursor(res.data.pagination.nextCursor);
-                    setHasMore(res.data.pagination.hasMore);
-                    
-                    // Mark newly fetched unread messages from this user as seen
-                    const unreadIds = res.data.messages
-                        .filter(m => m.senderId === receiverId && m.status !== 'seen')
-                        .map(m => m.id);
-                    if (unreadIds.length > 0) {
-                        markSeen(unreadIds);
-                    }
-                }
-            } catch (e) {
-                console.error('Failed to load initial messages', e);
-            }
+        setActiveChatUserId(receiverId);
+        clearUnreadCount(receiverId);
+        return () => {
+            setActiveChatUserId(null);
         };
-        fetchInitial();
-        
-        return () => { isMounted = false; };
-    }, [receiverId, formatMessage, markSeen]);
+    }, [receiverId, setActiveChatUserId, clearUnreadCount]);
 
-    // Load Earlier
-    const onLoadEarlier = async () => {
-        if (!hasMore || !nextCursor || isLoadingEarlier) return;
-        setIsLoadingEarlier(true);
+    // Initial fetch
+    const fetchMessages = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const res = await messageApi.getMessages(receiverId);
+            if (res.success && res.data) {
+                setMessages(res.data.messages);
+                setNextCursor(res.data.pagination.nextCursor);
+                setHasMore(res.data.pagination.hasMore);
+                
+                // Mark unread messages as seen immediately
+                const unreadIds = res.data.messages
+                    .filter(m => m.senderId === receiverId && m.status !== 'seen')
+                    .map(m => m.id);
+                if (unreadIds.length > 0) {
+                    markSeen(unreadIds);
+                }
+            } else {
+                setError('Failed to load messages');
+            }
+        } catch (err) {
+            console.error('Error fetching messages:', err);
+            setError('Network error loading messages');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [receiverId, markSeen]);
+
+    useEffect(() => {
+        fetchMessages();
+    }, [fetchMessages]);
+
+    const loadOlderMessages = async () => {
+        if (!hasMore || !nextCursor || isRefreshing) return;
+        
+        setIsRefreshing(true);
         try {
             const res = await messageApi.getMessages(receiverId, nextCursor);
             if (res.success && res.data) {
-                const formatted = res.data.messages.map(formatMessage).reverse();
-                setMessages(prev => GiftedChat.append(prev, formatted, false));
-                
+                const olderMessages = res.data.messages;
+                setMessages(prev => {
+                    const existingIds = new Set(prev.map(m => m.id));
+                    const newMessages = olderMessages.filter(m => !existingIds.has(m.id));
+                    return [...newMessages, ...prev];
+                });
                 setNextCursor(res.data.pagination.nextCursor);
                 setHasMore(res.data.pagination.hasMore);
             }
-        } catch (e) {
-            console.error('Failed to load older messages', e);
+        } catch (err) {
+            console.error('Error loading older messages:', err);
         } finally {
-            setIsLoadingEarlier(false);
+            setIsRefreshing(false);
         }
     };
 
@@ -130,223 +128,416 @@ export default function ChatScreen() {
     useEffect(() => {
         if (!socket) return;
 
+        const onMessageAck = (payload: { clientTempId: string, message: BackendMessage }) => {
+            const { clientTempId, message } = payload;
+            
+            if (pendingTimeouts.current[clientTempId]) {
+                clearTimeout(pendingTimeouts.current[clientTempId]);
+                delete pendingTimeouts.current[clientTempId];
+            }
+            
+            setMessages(prev => prev.map(m => 
+                m.clientTempId === clientTempId ? message : m
+            ));
+        };
+
         const onReceiveMessage = (payload: { message: BackendMessage }) => {
             const { message } = payload;
             if (message.senderId === receiverId || message.receiverId === receiverId) {
-                setMessages(prev => GiftedChat.append(prev, [formatMessage(message)]));
+                setMessages(prev => {
+                    if (prev.some(m => m.id === message.id && message.id !== 0)) return prev;
+                    return [...prev, message];
+                });
                 
-                // If it's from the other person, mark it as seen immediately since we are in the chat
                 if (message.senderId === receiverId) {
                     markSeen([message.id]);
                 }
             }
         };
 
-        const onMessageAck = (payload: { clientTempId: string, message: BackendMessage }) => {
-            const { clientTempId, message } = payload;
-            setMessages(prev => 
-                prev.map(msg => 
-                    msg._id === clientTempId ? formatMessage(message) : msg
-                )
-            );
-        };
-
         const onMessageSeen = (payload: { messageIds: number[], seenBy: number }) => {
-            const { messageIds, seenBy } = payload;
-            if (seenBy === receiverId) {
-                setMessages(prev => 
-                    prev.map(msg => 
-                        messageIds.includes(Number(msg._id)) 
-                            ? { ...msg, status: 'seen', received: true } as IMessage & { status: string }
-                            : msg
-                    )
-                );
+            if (payload.seenBy === receiverId) {
+                setMessages(prev => prev.map(m => 
+                    payload.messageIds.includes(m.id)
+                        ? { ...m, status: 'seen' }
+                        : m
+                ));
             }
         };
 
         const onTypingStart = (payload: { userId: number }) => {
-            if (payload.userId === receiverId) setIsTyping(true);
+            if (payload.userId === receiverId) {
+                setIsReceiverTyping(true);
+                if (receiverTypingTimeout.current) clearTimeout(receiverTypingTimeout.current);
+                receiverTypingTimeout.current = setTimeout(() => {
+                    setIsReceiverTyping(false);
+                }, 5000);
+            }
         };
 
         const onTypingStop = (payload: { userId: number }) => {
-            if (payload.userId === receiverId) setIsTyping(false);
+            if (payload.userId === receiverId) {
+                setIsReceiverTyping(false);
+                if (receiverTypingTimeout.current) clearTimeout(receiverTypingTimeout.current);
+            }
         };
 
-        socket.on('receive_message', onReceiveMessage);
         socket.on('message_ack', onMessageAck);
+        socket.on('receive_message', onReceiveMessage);
         socket.on('message_seen', onMessageSeen);
         socket.on('typing_start', onTypingStart);
         socket.on('typing_stop', onTypingStop);
 
         return () => {
-            socket.off('receive_message', onReceiveMessage);
             socket.off('message_ack', onMessageAck);
+            socket.off('receive_message', onReceiveMessage);
             socket.off('message_seen', onMessageSeen);
             socket.off('typing_start', onTypingStart);
             socket.off('typing_stop', onTypingStop);
         };
-    }, [socket, receiverId, formatMessage, markSeen]);
+    }, [socket, receiverId, markSeen]);
 
-    const onSend = useCallback((newMessages: IMessage[] = []) => {
-        if (!currentUser) return;
+    useEffect(() => {
+        return () => {
+            Object.values(pendingTimeouts.current).forEach(clearTimeout);
+            if (myTypingTimeout.current) clearTimeout(myTypingTimeout.current);
+            if (receiverTypingTimeout.current) clearTimeout(receiverTypingTimeout.current);
+        };
+    }, []);
+
+    const handleInputChanged = (text: string) => {
+        setInputText(text);
         
-        newMessages.forEach(msg => {
-            const clientTempId = msg._id.toString();
-            
-            // Optimistic append
-            const optimisticMsg = {
-                ...msg,
-                pending: true,
-                status: 'pending'
-            } as IMessage & { status: string };
-            
-            setMessages(prev => GiftedChat.append(prev, [optimisticMsg]));
-            
-            // Send over socket
-            sendMessage(receiverId, msg.text, clientTempId);
-            
-            // Optional: simulate timeout for failed state
-            setTimeout(() => {
-                setMessages(prev => 
-                    prev.map(p => 
-                        (p._id === clientTempId && p.pending)
-                            ? { ...p, pending: false, status: 'failed' } as IMessage & { status: string }
-                            : p
-                    )
-                );
-            }, 10000); // 10s timeout to mark as failed
-        });
-    }, [currentUser, receiverId, sendMessage]);
-
-    // Typing Debounce
-    let typingTimeout: ReturnType<typeof setTimeout> | null = null;
-    const onInputTextChanged = (text: string) => {
         if (text.length > 0) {
             sendTypingStart(receiverId);
-            if (typingTimeout) clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
+            if (myTypingTimeout.current) clearTimeout(myTypingTimeout.current);
+            myTypingTimeout.current = setTimeout(() => {
                 sendTypingStop(receiverId);
             }, 3000);
+        } else {
+            sendTypingStop(receiverId);
+            if (myTypingTimeout.current) clearTimeout(myTypingTimeout.current);
         }
     };
 
-    const renderTicks = (message: IMessage) => {
-        const msg = message as IMessage & { status?: string };
-        if (message.user._id !== currentUser?.id) return null;
+    const handleSend = () => {
+        if (!inputText.trim() || !currentUser) return;
 
-        let tickStr = '';
-        let color = '#999';
+        const textToSend = inputText.trim();
+        const clientTempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        
+        const newMsg: BackendMessage = {
+            id: 0,
+            clientTempId,
+            senderId: currentUser.id,
+            receiverId,
+            message: textToSend,
+            status: 'pending',
+            createdAt: new Date().toISOString()
+        };
 
-        switch (msg.status) {
-            case 'pending':
-                tickStr = '⌚';
-                break;
-            case 'sent':
-                tickStr = '✓';
-                break;
-            case 'delivered':
-                tickStr = '✓✓';
-                break;
-            case 'seen':
-                tickStr = '✓✓';
-                color = '#34B7F1'; // Blue ticks
-                break;
-            case 'failed':
-                tickStr = '❌';
-                color = '#FF3B30';
-                break;
-            default:
-                break;
+        setMessages(prev => [...prev, newMsg]);
+        setInputText('');
+        sendTypingStop(receiverId);
+        
+        setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+
+        sendMessage(receiverId, textToSend, clientTempId);
+
+        pendingTimeouts.current[clientTempId] = setTimeout(() => {
+            setMessages(prev => prev.map(m => 
+                m.clientTempId === clientTempId && m.status === 'pending'
+                    ? { ...m, status: 'failed' }
+                    : m
+            ));
+        }, 10000);
+    };
+
+    const handleRetry = (msg: BackendMessage) => {
+        if (msg.status !== 'failed' || !msg.clientTempId) return;
+
+        Alert.alert('Retry Message', 'Do you want to retry sending this message?', [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+                text: 'Retry', 
+                onPress: () => {
+                    setMessages(prev => prev.map(m => 
+                        m.clientTempId === msg.clientTempId
+                            ? { ...m, status: 'pending' }
+                            : m
+                    ));
+
+                    sendMessage(receiverId, msg.message, msg.clientTempId!);
+
+                    pendingTimeouts.current[msg.clientTempId!] = setTimeout(() => {
+                        setMessages(prev => prev.map(m => 
+                            m.clientTempId === msg.clientTempId && m.status === 'pending'
+                                ? { ...m, status: 'failed' }
+                                : m
+                        ));
+                    }, 10000);
+                }
+            }
+        ]);
+    };
+
+    const formatTime = (dateString: string) => {
+        try {
+            const d = new Date(dateString);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return '';
+        }
+    };
+
+    const renderTicks = (item: BackendMessage) => {
+        if (item.senderId !== currentUser?.id) return null;
+        
+        let icon = '';
+        let color = colors.receiptSent;
+        switch (item.status) {
+            case 'pending': icon = '⌚'; color = colors.receiptPending; break;
+            case 'sent': icon = '✓'; color = colors.receiptSent; break;
+            case 'delivered': icon = '✓✓'; color = colors.receiptDelivered; break;
+            case 'seen': icon = '✓✓'; color = colors.receiptSeen; break;
+            case 'failed': icon = '❌'; color = colors.receiptFailed; break;
         }
 
+        return <Text style={{ fontSize: 10, color, marginLeft: 6 }}>{icon}</Text>;
+    };
+
+    const renderMessage = ({ item }: { item: BackendMessage }) => {
+        const isMine = item.senderId === currentUser?.id;
+        const isFailed = item.status === 'failed';
+
         return (
-            <Text style={{ fontSize: 10, color, paddingRight: 4, paddingBottom: 2 }}>
-                {tickStr}
-            </Text>
+            <View style={[styles.messageWrapper, isMine ? styles.messageWrapperRight : styles.messageWrapperLeft]}>
+                <Pressable 
+                    onLongPress={() => isMine && isFailed ? handleRetry(item) : null}
+                    style={[
+                        styles.messageBubble, 
+                        isMine ? { backgroundColor: colors.messageBubbleRight } : { backgroundColor: colors.messageBubbleLeft, borderColor: colors.border },
+                        isFailed && { backgroundColor: colors.error }
+                    ]}
+                >
+                    <Text style={[styles.messageText, isMine ? { color: colors.messageTextRight } : { color: colors.messageTextLeft }]}>
+                        {item.message}
+                    </Text>
+                    <View style={styles.timeAndTicks}>
+                        <Text style={[styles.messageTime, isMine ? { color: colors.messageTimeRight } : { color: colors.messageTimeLeft }]}>
+                            {formatTime(item.createdAt)}
+                        </Text>
+                        {renderTicks(item)}
+                    </View>
+                </Pressable>
+                {isFailed && (
+                    <Pressable style={styles.inlineRetryBtn} onPress={() => handleRetry(item)}>
+                        <Text style={[styles.inlineRetryText, { color: colors.error }]}>Retry</Text>
+                    </Pressable>
+                )}
+            </View>
         );
     };
 
-    const onRetry = (message: IMessage) => {
-        const msg = message as IMessage & { status?: string };
-        if (msg.status === 'failed') {
-            // Reset to pending
-            setMessages(prev => 
-                prev.map(p => 
-                    p._id === message._id 
-                        ? { ...p, status: 'pending', pending: true } as IMessage & { status: string }
-                        : p
-                )
-            );
-            sendMessage(receiverId, message.text, message._id.toString());
-        }
-    };
-
-    const renderBubble = (props: BubbleProps<IMessage>) => {
-        const msg = props.currentMessage as IMessage & { status?: string };
-        return (
-            <TouchableOpacity 
-                onLongPress={() => onRetry(props.currentMessage!)}
-                disabled={msg.status !== 'failed'}
-                activeOpacity={0.8}
-            >
-                <Bubble
-                    {...props}
-                    renderTicks={() => renderTicks(props.currentMessage!)}
-                    wrapperStyle={{
-                        right: {
-                            backgroundColor: msg.status === 'failed' ? '#FF3B30' : '#007AFF',
-                            opacity: msg.pending ? 0.7 : 1
-                        }
-                    }}
-                />
-            </TouchableOpacity>
-        );
-    };
+    const isEmptyMessage = inputText.trim().length === 0;
+    const isMissingCurrentUser = !currentUser?.id;
+    const isMissingReceiverId = !receiverId;
+    const isSendDisabled = isEmptyMessage || isMissingCurrentUser || isMissingReceiverId;
 
     return (
-        <View style={styles.container}>
-            <GiftedChat
-                messages={messages}
-                onSend={messages => onSend(messages)}
-                user={{
-                    _id: currentUser?.id || 0,
-                    name: currentUser?.name
-                }}
-                loadEarlierMessagesProps={{
-                    isAvailable: hasMore,
-                    isLoading: isLoadingEarlier,
-                    onPress: onLoadEarlier,
-                    isInfiniteScrollEnabled: true
-                }}
-                textInputProps={{ onChangeText: onInputTextChanged }}
-                isTyping={isTyping}
-                renderBubble={renderBubble}
-                listProps={{
-                    initialNumToRender: 15,
-                    maxToRenderPerBatch: 10,
-                    windowSize: 5
-                }}
-                isSendButtonAlwaysVisible
-            />
-        </View>
+        <KeyboardAvoidingView 
+            style={[styles.container, { backgroundColor: colors.background }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
+        >
+            <View style={styles.content}>
+                {isLoading ? (
+                    <View style={styles.centerContainer}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={[styles.statusText, { color: colors.textSecondary }]}>Loading messages...</Text>
+                    </View>
+                ) : error ? (
+                    <View style={styles.centerContainer}>
+                        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+                        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={fetchMessages}>
+                            <Text style={styles.retryButtonText}>Retry</Text>
+                        </Pressable>
+                    </View>
+                ) : messages.length === 0 ? (
+                    <View style={styles.centerContainer}>
+                        <Text style={[styles.emptyText, { color: colors.text }]}>No messages yet.</Text>
+                        <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Send a message to start the conversation!</Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        ref={flatListRef}
+                        data={messages}
+                        keyExtractor={(item) => item.clientTempId || item.id.toString()}
+                        renderItem={renderMessage}
+                        contentContainerStyle={styles.listContent}
+                        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                        refreshControl={
+                            <RefreshControl 
+                                refreshing={isRefreshing} 
+                                onRefresh={loadOlderMessages} 
+                                colors={[colors.primary]}
+                                tintColor={colors.primary}
+                            />
+                        }
+                    />
+                )}
+                
+                {isReceiverTyping && (
+                    <View style={[styles.typingIndicatorContainer, { backgroundColor: isDark ? 'rgba(30, 30, 30, 0.9)' : 'rgba(245, 245, 245, 0.9)' }]}>
+                        <Text style={[styles.typingIndicatorText, { color: colors.textSecondary }]}>{userName} is typing...</Text>
+                    </View>
+                )}
+            </View>
+
+            <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <TextInput
+                    style={[styles.input, { backgroundColor: isDark ? '#2c2c2c' : '#f1f1f1', color: colors.text }]}
+                    placeholder="Type a message..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={inputText}
+                    onChangeText={handleInputChanged}
+                    multiline
+                />
+                <Pressable 
+                    style={[styles.sendButton, { backgroundColor: isSendDisabled ? colors.primaryDisabled : colors.primary }]} 
+                    disabled={isSendDisabled}
+                    onPress={handleSend}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Text style={[styles.sendButtonText, isSendDisabled && { color: isDark ? '#888' : '#fff' }]}>Send</Text>
+                </Pressable>
+            </View>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
     },
-    headerContainer: {
+    content: {
+        flex: 1,
+        position: 'relative',
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
+        padding: 20,
     },
-    headerTitle: {
+    statusText: {
+        marginTop: 10,
         fontSize: 16,
-        fontWeight: 'bold',
-        color: '#000',
     },
-    headerSubtitle: {
+    errorText: {
+        fontSize: 16,
+        marginBottom: 15,
+        textAlign: 'center',
+    },
+    retryButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    emptySubtext: {
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    listContent: {
+        padding: 16,
+        paddingBottom: 40, // Room for typing indicator
+    },
+    messageWrapper: {
+        marginBottom: 12,
+        flexDirection: 'column',
+    },
+    messageWrapperRight: {
+        alignItems: 'flex-end',
+    },
+    messageWrapperLeft: {
+        alignItems: 'flex-start',
+    },
+    messageBubble: {
+        maxWidth: '75%',
+        padding: 12,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'transparent', // Default override
+    },
+    messageText: {
+        fontSize: 16,
+    },
+    timeAndTicks: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    messageTime: {
+        fontSize: 11,
+    },
+    inlineRetryBtn: {
+        marginTop: 4,
+    },
+    inlineRetryText: {
         fontSize: 12,
-        color: '#666',
+        fontWeight: 'bold',
+    },
+    typingIndicatorContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 8,
+        paddingHorizontal: 16,
+    },
+    typingIndicatorText: {
+        fontSize: 12,
+        fontStyle: 'italic',
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        padding: 12,
+        borderTopWidth: 1,
+        alignItems: 'flex-end',
+    },
+    input: {
+        flex: 1,
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingTop: 10,
+        paddingBottom: 10,
+        fontSize: 16,
+        maxHeight: 100,
+        minHeight: 40,
+    },
+    sendButton: {
+        marginLeft: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        justifyContent: 'center',
+        height: 40,
+    },
+    sendButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
     },
 });

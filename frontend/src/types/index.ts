@@ -5,6 +5,7 @@ export interface User {
     timezone: string;
     createdAt: string;
     updatedAt: string;
+    unreadCount?: number;
 }
 
 export interface AuthResponse {

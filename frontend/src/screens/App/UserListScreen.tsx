@@ -5,10 +5,14 @@ import { useNavigation } from '@react-navigation/native';
 import { AppNavigationProp } from '../../navigation/types';
 import { userApi } from '../../api/userApi';
 import { User } from '../../types';
+import { useTheme } from '../../context/ThemeContext';
+import { useChat } from '../../context/ChatContext';
 
 export default function UserListScreen() {
     const { logout, user } = useAuth();
     const navigation = useNavigation<AppNavigationProp>();
+    const { colors, isDark, setTheme, theme } = useTheme();
+    const { onlineUsers, typingUsers, unreadCounts, setUnreadCounts } = useChat();
     
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
@@ -20,8 +24,17 @@ export default function UserListScreen() {
             setError(null);
             if (!isRefresh) setLoading(true);
             const response = await userApi.getUsers();
-            if (response.success) {
+            if (response.success && response.data) {
                 setUsers(response.data);
+                
+                // Hydrate unread counts
+                const initialUnreadCounts: Record<number, number> = {};
+                response.data.forEach(u => {
+                    if (u.unreadCount) {
+                        initialUnreadCounts[u.id] = u.unreadCount;
+                    }
+                });
+                setUnreadCounts(initialUnreadCounts);
             } else {
                 setError('Failed to fetch users');
             }
@@ -32,7 +45,7 @@ export default function UserListScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [setUnreadCounts]);
 
     useEffect(() => {
         fetchUsers();
@@ -41,6 +54,18 @@ export default function UserListScreen() {
     const onRefresh = () => {
         setRefreshing(true);
         fetchUsers(true);
+    };
+
+    const toggleTheme = () => {
+        if (theme === 'light') setTheme('dark');
+        else if (theme === 'dark') setTheme('system');
+        else setTheme('light');
+    };
+
+    const getThemeIcon = () => {
+        if (theme === 'light') return '☀️';
+        if (theme === 'dark') return '🌙';
+        return '⚙️'; // system
     };
 
     const getContactLocalStatus = (timezone: string) => {
@@ -70,21 +95,37 @@ export default function UserListScreen() {
 
     const renderItem = ({ item }: { item: User }) => {
         const { timeStr, isOutOfOffice } = getContactLocalStatus(item.timezone);
+        const isOnline = onlineUsers.has(item.id);
+        const isTyping = typingUsers.has(item.id);
+        const unreadCount = unreadCounts[item.id] || 0;
         
         return (
             <TouchableOpacity 
-                style={styles.userItem}
+                style={[styles.userItem, { backgroundColor: colors.surface }]}
                 onPress={() => navigation.navigate('Chat', { userId: item.id, userName: item.name, timezone: item.timezone })}
             >
                 <View style={styles.userHeader}>
-                    <Text style={styles.userName}>{item.name}</Text>
-                    <Text style={styles.timeText}>{timeStr}</Text>
+                    <View style={styles.nameContainer}>
+                        <View style={[styles.statusDot, { backgroundColor: isOnline ? colors.success : colors.textSecondary }]} />
+                        <Text style={[styles.userName, { color: colors.text }]}>{item.name}</Text>
+                        {unreadCount > 0 && (
+                            <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+                                <Text style={styles.unreadBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                            </View>
+                        )}
+                    </View>
+                    <Text style={[styles.timeText, { color: colors.primary }]}>{timeStr}</Text>
                 </View>
-                <Text style={styles.emailText}>{item.email}</Text>
+                <View style={styles.emailRow}>
+                    <Text style={[styles.emailText, { color: colors.textSecondary }]}>{item.email}</Text>
+                    {isTyping && (
+                        <Text style={[styles.typingText, { color: colors.primary }]}>Typing...</Text>
+                    )}
+                </View>
                 <View style={styles.statusRow}>
-                    <Text style={styles.timezoneText}>{item.timezone}</Text>
+                    <Text style={[styles.timezoneText, { color: colors.textSecondary }]}>{item.timezone}</Text>
                     {isOutOfOffice && (
-                        <View style={styles.oooBadge}>
+                        <View style={[styles.oooBadge, { backgroundColor: isDark ? '#3a1c1c' : '#FFF0F0', borderColor: isDark ? '#5a2a2a' : '#FFB3B3' }]}>
                             <Text style={styles.oooText}>Out of Office</Text>
                         </View>
                     )}
@@ -94,25 +135,30 @@ export default function UserListScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                 <View>
-                    <Text style={styles.headerTitle}>Contacts</Text>
-                    <Text style={styles.headerSubtitle}>Logged in as {user?.name}</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Contacts</Text>
+                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Logged in as {user?.name}</Text>
                 </View>
-                <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-                    <Text style={styles.logoutText}>Logout</Text>
-                </TouchableOpacity>
+                <View style={styles.headerRight}>
+                    <TouchableOpacity style={styles.themeButton} onPress={toggleTheme}>
+                        <Text style={styles.themeText}>{getThemeIcon()}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.logoutButton, { backgroundColor: colors.error }]} onPress={logout}>
+                        <Text style={styles.logoutText}>Logout</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
             
             {loading && !refreshing ? (
                 <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#007AFF" />
+                    <ActivityIndicator size="large" color={colors.primary} />
                 </View>
             ) : error ? (
                 <View style={styles.centerContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
-                    <TouchableOpacity style={styles.retryButton} onPress={() => fetchUsers()}>
+                    <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+                    <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => fetchUsers()}>
                         <Text style={styles.retryButtonText}>Retry</Text>
                     </TouchableOpacity>
                 </View>
@@ -122,13 +168,13 @@ export default function UserListScreen() {
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={renderItem}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
                     }
                     contentContainerStyle={users.length === 0 ? styles.emptyContainer : null}
                     ListEmptyComponent={
                         <View style={styles.centerContainer}>
-                            <Text style={styles.emptyText}>No other users found in the system.</Text>
-                            <Text style={styles.emptySubText}>Create another account to start chatting!</Text>
+                            <Text style={[styles.emptyText, { color: colors.text }]}>No other users found in the system.</Text>
+                            <Text style={[styles.emptySubText, { color: colors.textSecondary }]}>Create another account to start chatting!</Text>
                         </View>
                     }
                 />
@@ -140,7 +186,6 @@ export default function UserListScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
     },
     header: {
         flexDirection: 'row',
@@ -148,22 +193,31 @@ const styles = StyleSheet.create({
         paddingTop: 20,
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#fff',
         borderBottomWidth: 1,
-        borderBottomColor: '#eee',
     },
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#000',
     },
     headerSubtitle: {
         fontSize: 14,
-        color: '#666',
         marginTop: 4,
     },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    themeButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        marginRight: 8,
+        borderRadius: 8,
+        backgroundColor: 'transparent',
+    },
+    themeText: {
+        fontSize: 18,
+    },
     logoutButton: {
-        backgroundColor: '#FF3B30',
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 8,
@@ -182,7 +236,6 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     userItem: {
-        backgroundColor: '#fff',
         padding: 16,
         marginHorizontal: 16,
         marginTop: 12,
@@ -199,20 +252,37 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 4,
     },
+    nameContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statusDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginRight: 8,
+    },
     userName: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#000',
     },
     timeText: {
         fontSize: 14,
         fontWeight: '500',
-        color: '#007AFF',
+    },
+    emailRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
     },
     emailText: {
         fontSize: 14,
-        color: '#666',
-        marginBottom: 8,
+    },
+    typingText: {
+        fontSize: 12,
+        fontStyle: 'italic',
+        fontWeight: '500',
     },
     statusRow: {
         flexDirection: 'row',
@@ -221,15 +291,12 @@ const styles = StyleSheet.create({
     },
     timezoneText: {
         fontSize: 12,
-        color: '#888',
     },
     oooBadge: {
-        backgroundColor: '#FFF0F0',
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#FFB3B3',
     },
     oooText: {
         fontSize: 10,
@@ -239,22 +306,18 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#333',
         marginBottom: 8,
     },
     emptySubText: {
         fontSize: 14,
-        color: '#666',
         textAlign: 'center',
     },
     errorText: {
         fontSize: 16,
-        color: '#FF3B30',
         marginBottom: 16,
         textAlign: 'center',
     },
     retryButton: {
-        backgroundColor: '#007AFF',
         paddingHorizontal: 20,
         paddingVertical: 10,
         borderRadius: 8,
@@ -263,4 +326,18 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
     },
+    unreadBadge: {
+        marginLeft: 8,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 12,
+        minWidth: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    unreadBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+    }
 });

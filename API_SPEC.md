@@ -197,7 +197,8 @@ Authorization: Bearer jwt-token
         "id": 2,
         "name": "Jane Advisor",
         "email": "jane@example.com",
-        "timezone": "America/New_York"
+        "timezone": "America/New_York",
+        "unreadCount": 0
       }
     ]
   }

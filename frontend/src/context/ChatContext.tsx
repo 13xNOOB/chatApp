@@ -2,12 +2,17 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { io, Socket } from 'socket.io-client';
 import { SOCKET_URL } from '../config/env';
 import { useAuth } from './AuthContext';
+import { Message as BackendMessage } from '../types';
 
 interface ChatContextData {
     socket: Socket | null;
     isConnected: boolean;
     onlineUsers: Set<number>;
     typingUsers: Set<number>;
+    unreadCounts: Record<number, number>;
+    setUnreadCounts: React.Dispatch<React.SetStateAction<Record<number, number>>>;
+    setActiveChatUserId: (userId: number | null) => void;
+    clearUnreadCount: (userId: number) => void;
     connectSocket: () => void;
     disconnectSocket: () => void;
     sendMessage: (receiverId: number, message: string, clientTempId: string) => void;
@@ -24,9 +29,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isConnected, setIsConnected] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
     const [typingUsers, setTypingUsers] = useState<Set<number>>(new Set());
+    const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
     
     const socketRef = useRef<Socket | null>(null);
     const typingTimeoutsRef = useRef<{ [key: number]: ReturnType<typeof setTimeout> }>({});
+    const activeChatUserIdRef = useRef<number | null>(null);
+
+    const setActiveChatUserId = useCallback((userId: number | null) => {
+        activeChatUserIdRef.current = userId;
+    }, []);
+
+    const clearUnreadCount = useCallback((userId: number) => {
+        setUnreadCounts(prev => ({ ...prev, [userId]: 0 }));
+    }, []);
 
     const disconnectSocket = useCallback(() => {
         if (socketRef.current) {
@@ -40,6 +55,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setTypingUsers(new Set());
             Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
             typingTimeoutsRef.current = {};
+            activeChatUserIdRef.current = null;
+            setUnreadCounts({});
         }
     }, []);
 
@@ -125,10 +142,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         });
 
-        // Other generic logging listeners
-        newSocket.on('receive_message', (payload) => console.log('[ChatContext] receive_message:', payload));
+        newSocket.on('receive_message', (payload: { message: BackendMessage }) => {
+            const { message } = payload;
+            const senderId = message.senderId;
+            
+            if (activeChatUserIdRef.current !== senderId) {
+                // Not in active chat with the sender, increment local unread count
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    [senderId]: (prev[senderId] || 0) + 1
+                }));
+            }
+        });
+
         newSocket.on('message_ack', (payload) => console.log('[ChatContext] message_ack:', payload));
-        newSocket.on('message_seen', (payload) => console.log('[ChatContext] message_seen:', payload));
+        
+        newSocket.on('message_seen', (payload: { messageIds: number[], seenBy: number }) => {
+            // No action needed for local counts when WE see a message because we aggressively clear it via clearUnreadCount.
+            // When THEY see our message, it has no impact on our unreadCount.
+        });
 
         socketRef.current = newSocket;
         setSocket(newSocket);
@@ -186,6 +218,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isConnected,
             onlineUsers,
             typingUsers,
+            unreadCounts,
+            setUnreadCounts,
+            setActiveChatUserId,
+            clearUnreadCount,
             connectSocket,
             disconnectSocket,
             sendMessage,

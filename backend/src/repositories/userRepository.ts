@@ -41,11 +41,15 @@ export const userRepository = {
         return (rows[0] as User) || null;
     },
 
-    async getAllUsersExcept(id: number): Promise<Omit<User, 'password_hash'>[]> {
+    async getAllUsersExcept(id: number): Promise<(Omit<User, 'password_hash'> & { unreadCount: number })[]> {
         const [rows] = await pool.execute<RowDataPacket[]>(
-            `SELECT id, name, email, timezone, created_at, updated_at FROM users WHERE id != ?`,
-            [id]
+            `SELECT 
+                u.id, u.name, u.email, u.timezone, u.created_at, u.updated_at,
+                (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id AND m.receiver_id = ? AND m.status != 'seen') as unreadCount
+             FROM users u 
+             WHERE u.id != ?`,
+            [id, id]
         );
-        return rows as Omit<User, 'password_hash'>[];
+        return rows as (Omit<User, 'password_hash'> & { unreadCount: number })[];
     }
 };
