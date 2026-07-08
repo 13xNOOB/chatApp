@@ -28,7 +28,7 @@ export default function ChatScreen() {
     const navigation = useNavigation<AppNavigationProp>();
     const { userId: receiverId, userName, timezone } = route.params;
     const { user: currentUser } = useAuth();
-    const { socket, sendMessage, retryMessage, markSeen, sendTypingStart, sendTypingStop, setActiveChatUserId, clearUnreadCount, pendingMessagesQueue, isNetworkConnected } = useChat();
+    const { socket, sendMessage, retryMessage, markSeen, sendTypingStart, sendTypingStop, setActiveChatUserId, clearUnreadCount, pendingMessagesQueue, isNetworkConnected, onlineUsers } = useChat();
     const { colors, isDark } = useTheme();
 
     const [messages, setMessages] = useState<BackendMessage[]>([]);
@@ -57,16 +57,47 @@ export default function ChatScreen() {
         return [...messages, ...filteredPending];
     }, [messages, pendingMessagesQueue, receiverId]);
 
+    const [localTime, setLocalTime] = useState<string>('');
+
+    const computeLocalTime = useCallback(() => {
+        if (!timezone) return '';
+        try {
+            return new Intl.DateTimeFormat('en-US', {
+                timeZone: timezone,
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: true
+            }).format(new Date());
+        } catch {
+            return '';
+        }
+    }, [timezone]);
+
+    useEffect(() => {
+        setLocalTime(computeLocalTime());
+        const interval = setInterval(() => {
+            setLocalTime(computeLocalTime());
+        }, 60000);
+        return () => clearInterval(interval);
+    }, [computeLocalTime]);
+
+    const isOnline = onlineUsers.has(receiverId);
+
     // Header update
     useEffect(() => {
-        let titleStr = userName;
-        if (timezone) {
-            titleStr += ` (${timezone})`;
-        }
         navigation.setOptions({
-            headerTitle: titleStr,
+            headerTitle: () => (
+                <View style={{ flexDirection: 'column', alignItems: 'center', maxWidth: 200 }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text }} numberOfLines={1}>
+                        {userName}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
+                        {isOnline ? 'Online' : 'Offline'}{localTime ? ` · ${localTime} local time` : ''}
+                    </Text>
+                </View>
+            ),
         });
-    }, [navigation, userName, timezone]);
+    }, [navigation, userName, isOnline, localTime, colors]);
 
     // Active chat state management
     useEffect(() => {
