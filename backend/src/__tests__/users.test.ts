@@ -46,7 +46,7 @@ describe('Users API', () => {
             expect(res.body.data.users[0].id).toBe(2);
             expect(pool.execute).toHaveBeenCalledWith(
                 expect.stringContaining('id != ?'),
-                [1]
+                [1, 1]
             );
         });
     });
