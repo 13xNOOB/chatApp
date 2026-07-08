@@ -55,6 +55,18 @@ export const storageService = {
             return null;
         }
     },
+    saveCachedMessages(currentUserId: number, receiverId: number, messages: any[]) {
+        storage.set(`cachedMessages_${currentUserId}_${receiverId}`, JSON.stringify(messages));
+    },
+    getCachedMessages(currentUserId: number, receiverId: number): any[] | null {
+        const str = storage.getString(`cachedMessages_${currentUserId}_${receiverId}`);
+        if (!str) return null;
+        try {
+            return JSON.parse(str);
+        } catch {
+            return null;
+        }
+    },
     clearAll() {
         storage.clearAll();
     }

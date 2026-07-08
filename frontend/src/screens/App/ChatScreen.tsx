@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { Message as BackendMessage } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
+import { storageService } from '../../services/storage';
 
 type ChatScreenRouteProp = RouteProp<AppStackParamList, 'Chat'>;
 
@@ -34,6 +35,7 @@ export default function ChatScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [inputText, setInputText] = useState('');
+    const [isShowingCached, setIsShowingCached] = useState(false);
     
     // Pagination states
     const [nextCursor, setNextCursor] = useState<number | null>(null);
@@ -77,6 +79,7 @@ export default function ChatScreen() {
 
     // Initial fetch
     const fetchMessages = useCallback(async () => {
+        if (!currentUser?.id) return;
         setIsLoading(true);
         setError(null);
         try {
@@ -85,6 +88,9 @@ export default function ChatScreen() {
                 // Store messages in ascending chronological order (oldest first, newest last)
                 const chronologicalMessages = [...res.data.messages].reverse();
                 setMessages(chronologicalMessages);
+                setIsShowingCached(false);
+                storageService.saveCachedMessages(currentUser.id, receiverId, chronologicalMessages);
+                
                 setNextCursor(res.data.pagination.nextCursor);
                 setHasMore(res.data.pagination.hasMore);
                 
@@ -96,15 +102,23 @@ export default function ChatScreen() {
                     markSeen(unreadIds);
                 }
             } else {
-                setError('Failed to load messages');
+                throw new Error('Failed to load messages');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error fetching messages:', err);
+            
+            if (!isNetworkConnected || err.message === 'Network Error' || err.message.includes('fetch')) {
+                const cached = storageService.getCachedMessages(currentUser.id, receiverId);
+                setMessages(cached || []);
+                setIsShowingCached(true);
+                return; // skip error completely when offline
+            }
+
             setError('Network error loading messages');
         } finally {
             setIsLoading(false);
         }
-    }, [receiverId, markSeen]);
+    }, [receiverId, markSeen, currentUser?.id, isNetworkConnected]);
 
     useEffect(() => {
         fetchMessages();
@@ -323,8 +337,12 @@ export default function ChatScreen() {
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
         >
             {!isNetworkConnected && (
-                <View style={[styles.offlineBanner, { backgroundColor: colors.error }]}>
-                    <Text style={styles.offlineBannerText}>Offline — messages will send when reconnected</Text>
+                <View style={[styles.offlineBanner, { backgroundColor: '#f39c12' }]}>
+                    <Text style={styles.offlineBannerText}>
+                        {isShowingCached && messages.length > 0 
+                            ? 'Offline — showing cached chat' 
+                            : 'Offline — messages will send when reconnected'}
+                    </Text>
                 </View>
             )}
             <View style={styles.content}>
@@ -342,8 +360,12 @@ export default function ChatScreen() {
                     </View>
                 ) : displayMessages.length === 0 ? (
                     <View style={styles.centerContainer}>
-                        <Text style={[styles.emptyText, { color: colors.text }]}>No messages yet.</Text>
-                        <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Send a message to start the conversation!</Text>
+                        <Text style={[styles.emptyText, { color: colors.text }]}>
+                            {!isNetworkConnected ? 'No cached messages yet.' : 'No messages yet.'}
+                        </Text>
+                        <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                            {!isNetworkConnected ? 'Messages you send now will queue.' : 'Send a message to start the conversation!'}
+                        </Text>
                     </View>
                 ) : (
                     <FlatList
