@@ -23,7 +23,8 @@ async function testFcm() {
         console.log(`[FCM Test] Starting test for userId: ${userId}`);
 
         // 2. Initialize Firebase Admin
-        const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.resolve(process.cwd(), '../firebase-configs/firebase-service-account.json');
+        const envPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+        const serviceAccountPath = path.resolve(process.cwd(), envPath || '../firebase-configs/firebase-service-account.json');
         try {
             initializeApp({
                 credential: cert(require(serviceAccountPath))
