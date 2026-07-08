@@ -3,10 +3,12 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { AuthNavigationProp } from '../../navigation/types';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function RegistrationScreen() {
     const { register } = useAuth();
     const navigation = useNavigation<AuthNavigationProp>();
+    const { colors, isDark } = useTheme();
     
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -49,21 +51,23 @@ export default function RegistrationScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Create Account</Text>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
             
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
             
             <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
                 placeholder="Full Name"
+                placeholderTextColor={colors.textSecondary}
                 value={name}
                 onChangeText={setName}
             />
 
             <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
                 placeholder="Email"
+                placeholderTextColor={colors.textSecondary}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -71,23 +75,25 @@ export default function RegistrationScreen() {
             />
             
             <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
                 placeholder="Password"
+                placeholderTextColor={colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
             />
 
             <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
                 placeholder="Timezone (e.g. America/New_York)"
+                placeholderTextColor={colors.textSecondary}
                 value={timezone}
                 onChangeText={setTimezone}
                 autoCapitalize="none"
             />
             
             <TouchableOpacity 
-                style={styles.button} 
+                style={[styles.button, { backgroundColor: colors.primary }]} 
                 onPress={handleRegister}
                 disabled={loading}
             >
@@ -98,7 +104,7 @@ export default function RegistrationScreen() {
                 style={styles.linkButton} 
                 onPress={() => navigation.navigate('Login')}
             >
-                <Text style={styles.linkText}>Already have an account? Login</Text>
+                <Text style={[styles.linkText, { color: colors.primary }]}>Already have an account? Login</Text>
             </TouchableOpacity>
         </View>
     );
@@ -109,25 +115,21 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 24,
         justifyContent: 'center',
-        backgroundColor: '#fff',
     },
     title: {
         fontSize: 28,
         fontWeight: 'bold',
         marginBottom: 32,
         textAlign: 'center',
-        color: '#333',
     },
     input: {
         borderWidth: 1,
-        borderColor: '#ddd',
         padding: 16,
         marginBottom: 16,
         borderRadius: 8,
         fontSize: 16,
     },
     button: {
-        backgroundColor: '#007AFF',
         padding: 16,
         borderRadius: 8,
         alignItems: 'center',
@@ -143,11 +145,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     linkText: {
-        color: '#007AFF',
         fontSize: 14,
     },
     errorText: {
-        color: 'red',
         marginBottom: 16,
         textAlign: 'center',
     },

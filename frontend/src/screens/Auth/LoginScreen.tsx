@@ -3,10 +3,12 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator 
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { AuthNavigationProp } from '../../navigation/types';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginScreen() {
     const { login } = useAuth();
     const navigation = useNavigation<AuthNavigationProp>();
+    const { colors, isDark } = useTheme();
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -27,7 +29,6 @@ export default function LoginScreen() {
                 setError(res.error?.message || 'Login failed');
             }
         } catch (err: any) {
-            // Note: network errors or 4xx/5xx handled by axios catch blocks if propagated
             setError(err.response?.data?.error?.message || 'Network error occurred');
         } finally {
             setLoading(false);
@@ -35,14 +36,15 @@ export default function LoginScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Welcome Back</Text>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
             
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
             
             <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
                 placeholder="Email"
+                placeholderTextColor={colors.textSecondary}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -50,15 +52,16 @@ export default function LoginScreen() {
             />
             
             <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
                 placeholder="Password"
+                placeholderTextColor={colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
             />
             
             <TouchableOpacity 
-                style={styles.button} 
+                style={[styles.button, { backgroundColor: colors.primary }]} 
                 onPress={handleLogin}
                 disabled={loading}
             >
@@ -69,7 +72,7 @@ export default function LoginScreen() {
                 style={styles.linkButton} 
                 onPress={() => navigation.navigate('Registration')}
             >
-                <Text style={styles.linkText}>Don't have an account? Register</Text>
+                <Text style={[styles.linkText, { color: colors.primary }]}>Don't have an account? Register</Text>
             </TouchableOpacity>
         </View>
     );
@@ -80,25 +83,21 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 24,
         justifyContent: 'center',
-        backgroundColor: '#fff',
     },
     title: {
         fontSize: 28,
         fontWeight: 'bold',
         marginBottom: 32,
         textAlign: 'center',
-        color: '#333',
     },
     input: {
         borderWidth: 1,
-        borderColor: '#ddd',
         padding: 16,
         marginBottom: 16,
         borderRadius: 8,
         fontSize: 16,
     },
     button: {
-        backgroundColor: '#007AFF',
         padding: 16,
         borderRadius: 8,
         alignItems: 'center',
@@ -114,11 +113,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     linkText: {
-        color: '#007AFF',
         fontSize: 14,
     },
     errorText: {
-        color: 'red',
         marginBottom: 16,
         textAlign: 'center',
     },
