@@ -163,3 +163,32 @@ The app leverages `@react-native-community/netinfo`. When offline:
 ## Troubleshooting
 - **Network Error on Login**: Ensure `DEV_MACHINE_IP` is correct in `env.ts`. Ensure phone is on the exact same Wi-Fi.
 - **FCM Script failing module load**: Ensure `firebase-service-account.json` precisely matches the name and location inside the config folder.
+
+## Screenshots
+
+### Login
+
+![Login screen](docs/screenshots/1_welcome_light.jpg)
+![Login screen](docs/screenshots/2_welcome_dark.jpg)
+
+### Registration
+
+![Contacts screen](docs/screenshots/3_registration_light.jpg)
+![Contacts screen](docs/screenshots/4_registration_dark.jpg)
+
+
+### Contacts
+
+![Contacts screen](docs/screenshots/5_contacts_light.jpg)
+![Contacts screen](docs/screenshots/6_contacts_dark.jpg)
+
+
+### Chat
+
+![Chat screen](docs/screenshots/7_chat_light.jpg)
+![Chat screen](docs/screenshots/8_chat_dark.jpg)
+
+### Offline queue
+
+![Offline queue](docs/screenshots/9_offline_persistan_light.jpg)
+![Offline queue](docs/screenshots/10_offline_persistan_dark.jpg)
