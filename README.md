@@ -138,15 +138,44 @@ To run the app on a physical device, the frontend must point to your Mac Mini's 
    ```
 *(Note: A script automatically safely copies `google-services.json` into the android directory prior to building, if present).*
 
-### Run on iOS Simulator
-> [!NOTE]
-> The iOS Simulator is configured exclusively for UI and API testing. APNs and physical Apple Developer setups are intentionally skipped.
-1. Install CocoaPods:
+### 8. Startup Sequence
+To run the full application locally, you **must run three separate terminals**:
+
+### Terminal 1: Database
+Start the MySQL container via Docker:
+```bash
+cd backend
+docker compose up
+```
+
+### Terminal 2: Backend Node.js Server
+Start the Express/Socket.io backend server:
+```bash
+cd backend
+npm run dev
+```
+*(Without this step, the app will fail with a "Network Error" because nothing is listening on port 3000)*
+
+### Terminal 3: Frontend Metro Bundler
+Start the React Native bundler:
+```bash
+cd frontend
+npm start -- --reset-cache
+```
+
+### Finally: Run the App
+Open a 4th terminal (or do this before starting Metro):
+
+1. **Android**:
    ```bash
-   cd ios && bundle install && bundle exec pod install && cd ..
+   cd frontend
+   npm run android
    ```
-2. Run the iOS build:
+2. **iOS**:
+   > [!NOTE]
+   > The iOS Simulator is configured exclusively for UI and API testing. APNs and physical Apple Developer setups are intentionally skipped.
    ```bash
+   cd frontend/ios && bundle install && bundle exec pod install && cd ..
    npm run ios
    ```
 
