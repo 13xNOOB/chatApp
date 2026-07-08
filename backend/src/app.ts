@@ -20,6 +20,10 @@ app.get('/health', (req, res) => {
     res.json({ success: true, data: { status: 'healthy' } });
 });
 
+app.get('/api/health', (req, res) => {
+    res.json({ success: true, data: { status: 'healthy' } });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);

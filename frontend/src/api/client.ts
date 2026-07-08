@@ -24,7 +24,14 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
     (response) => response,
-    (error) => {
+    (error: any) => {
+        console.error('[DEBUG] Axios Response Error:', {
+            message: error.message,
+            code: error.code,
+            status: error.response?.status,
+            data: error.response?.data,
+            hasRequest: !!error.request
+        });
         // Handle global unauthorized or network errors here if necessary
         return Promise.reject(error);
     }
