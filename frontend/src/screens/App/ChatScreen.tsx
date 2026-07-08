@@ -75,7 +75,9 @@ export default function ChatScreen() {
         try {
             const res = await messageApi.getMessages(receiverId);
             if (res.success && res.data) {
-                setMessages(res.data.messages);
+                // Store messages in ascending chronological order (oldest first, newest last)
+                const chronologicalMessages = [...res.data.messages].reverse();
+                setMessages(chronologicalMessages);
                 setNextCursor(res.data.pagination.nextCursor);
                 setHasMore(res.data.pagination.hasMore);
                 
@@ -108,7 +110,7 @@ export default function ChatScreen() {
         try {
             const res = await messageApi.getMessages(receiverId, nextCursor);
             if (res.success && res.data) {
-                const olderMessages = res.data.messages;
+                const olderMessages = [...res.data.messages].reverse();
                 setMessages(prev => {
                     const existingIds = new Set(prev.map(m => m.id));
                     const newMessages = olderMessages.filter(m => !existingIds.has(m.id));
