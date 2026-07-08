@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error('FCM token fetch failed during logout:', e);
             }
             await authApi.logout(deviceToken);
-        } catch (e) {
+        } catch {
             // Ignore network errors on logout
         } finally {
             storageService.clearAll();

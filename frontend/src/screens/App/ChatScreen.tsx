@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { GiftedChat, IMessage, Bubble, BubbleProps, TimeProps } from 'react-native-gifted-chat';
+import { GiftedChat, IMessage, Bubble, BubbleProps } from 'react-native-gifted-chat';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { AppStackParamList, AppNavigationProp } from '../../navigation/types';
 import { useChat } from '../../context/ChatContext';
@@ -40,7 +40,7 @@ export default function ChatScreen() {
                     hour12: true
                 });
                 localTimeStr = ` • ${formatter.format(date)}`;
-            } catch (e) {
+            } catch {
                 // Ignore timezone errors
             }
         }

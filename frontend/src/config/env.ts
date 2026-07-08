@@ -5,10 +5,10 @@
 // export const DEV_MACHINE_IP = 'REPLACE_WITH_MAC_MINI_LAN_IP';
 
 // For Samsung Device uncomment this:
-// export const DEV_MACHINE_IP = '192.168.0.132';
+export const DEV_MACHINE_IP = '192.168.0.132';
 
 // For Mac Mini uncomment this:
-export const DEV_MACHINE_IP = '127.0.0.1';
+// export const DEV_MACHINE_IP = '127.0.0.1';
 
 export const API_BASE_URL = `http://${DEV_MACHINE_IP}:3000/api`;
 export const SOCKET_URL = `http://${DEV_MACHINE_IP}:3000`;
