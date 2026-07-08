@@ -175,7 +175,7 @@ Open a 4th terminal (or do this before starting Metro):
    > [!NOTE]
    > The iOS Simulator is configured exclusively for UI and API testing. APNs and physical Apple Developer setups are intentionally skipped.
    ```bash
-   cd frontend/ios && bundle install && bundle exec pod install && cd ..
+   cd frontend/ios && pod install && cd ..
    npm run ios
    ```
 
