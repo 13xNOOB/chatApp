@@ -27,7 +27,7 @@ export default function ChatScreen() {
     const navigation = useNavigation<AppNavigationProp>();
     const { userId: receiverId, userName, timezone } = route.params;
     const { user: currentUser } = useAuth();
-    const { socket, sendMessage, markSeen, sendTypingStart, sendTypingStop, setActiveChatUserId, clearUnreadCount } = useChat();
+    const { socket, sendMessage, retryMessage, markSeen, sendTypingStart, sendTypingStop, setActiveChatUserId, clearUnreadCount, pendingMessagesQueue, isNetworkConnected } = useChat();
     const { colors, isDark } = useTheme();
 
     const [messages, setMessages] = useState<BackendMessage[]>([]);
@@ -45,8 +45,15 @@ export default function ChatScreen() {
     const receiverTypingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const myTypingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     
-    const pendingTimeouts = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
     const flatListRef = useRef<FlatList>(null);
+
+    // Derived messages combining verified messages from API/Socket + pending queue
+    const displayMessages = React.useMemo(() => {
+        const chatPending = pendingMessagesQueue.filter(m => m.receiverId === receiverId);
+        const existingTempIds = new Set(messages.map(m => m.clientTempId).filter(Boolean));
+        const filteredPending = chatPending.filter(m => !existingTempIds.has(m.clientTempId));
+        return [...messages, ...filteredPending];
+    }, [messages, pendingMessagesQueue, receiverId]);
 
     // Header update
     useEffect(() => {
@@ -131,16 +138,13 @@ export default function ChatScreen() {
         if (!socket) return;
 
         const onMessageAck = (payload: { clientTempId: string, message: BackendMessage }) => {
-            const { clientTempId, message } = payload;
+            const { message } = payload;
             
-            if (pendingTimeouts.current[clientTempId]) {
-                clearTimeout(pendingTimeouts.current[clientTempId]);
-                delete pendingTimeouts.current[clientTempId];
-            }
-            
-            setMessages(prev => prev.map(m => 
-                m.clientTempId === clientTempId ? message : m
-            ));
+            // Append the confirmed message to the verified list
+            setMessages(prev => {
+                if (prev.some(m => m.clientTempId === payload.clientTempId || m.id === message.id)) return prev;
+                return [...prev, message];
+            });
         };
 
         const onReceiveMessage = (payload: { message: BackendMessage }) => {
@@ -201,7 +205,6 @@ export default function ChatScreen() {
 
     useEffect(() => {
         return () => {
-            Object.values(pendingTimeouts.current).forEach(clearTimeout);
             if (myTypingTimeout.current) clearTimeout(myTypingTimeout.current);
             if (receiverTypingTimeout.current) clearTimeout(receiverTypingTimeout.current);
         };
@@ -228,17 +231,6 @@ export default function ChatScreen() {
         const textToSend = inputText.trim();
         const clientTempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         
-        const newMsg: BackendMessage = {
-            id: 0,
-            clientTempId,
-            senderId: currentUser.id,
-            receiverId,
-            message: textToSend,
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        };
-
-        setMessages(prev => [...prev, newMsg]);
         setInputText('');
         sendTypingStop(receiverId);
         
@@ -247,14 +239,6 @@ export default function ChatScreen() {
         }, 100);
 
         sendMessage(receiverId, textToSend, clientTempId);
-
-        pendingTimeouts.current[clientTempId] = setTimeout(() => {
-            setMessages(prev => prev.map(m => 
-                m.clientTempId === clientTempId && m.status === 'pending'
-                    ? { ...m, status: 'failed' }
-                    : m
-            ));
-        }, 10000);
     };
 
     const handleRetry = (msg: BackendMessage) => {
@@ -264,23 +248,7 @@ export default function ChatScreen() {
             { text: 'Cancel', style: 'cancel' },
             { 
                 text: 'Retry', 
-                onPress: () => {
-                    setMessages(prev => prev.map(m => 
-                        m.clientTempId === msg.clientTempId
-                            ? { ...m, status: 'pending' }
-                            : m
-                    ));
-
-                    sendMessage(receiverId, msg.message, msg.clientTempId!);
-
-                    pendingTimeouts.current[msg.clientTempId!] = setTimeout(() => {
-                        setMessages(prev => prev.map(m => 
-                            m.clientTempId === msg.clientTempId && m.status === 'pending'
-                                ? { ...m, status: 'failed' }
-                                : m
-                        ));
-                    }, 10000);
-                }
+                onPress: () => retryMessage(msg)
             }
         ]);
     };
@@ -354,6 +322,11 @@ export default function ChatScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
         >
+            {!isNetworkConnected && (
+                <View style={[styles.offlineBanner, { backgroundColor: colors.error }]}>
+                    <Text style={styles.offlineBannerText}>Offline — messages will send when reconnected</Text>
+                </View>
+            )}
             <View style={styles.content}>
                 {isLoading ? (
                     <View style={styles.centerContainer}>
@@ -367,7 +340,7 @@ export default function ChatScreen() {
                             <Text style={styles.retryButtonText}>Retry</Text>
                         </Pressable>
                     </View>
-                ) : messages.length === 0 ? (
+                ) : displayMessages.length === 0 ? (
                     <View style={styles.centerContainer}>
                         <Text style={[styles.emptyText, { color: colors.text }]}>No messages yet.</Text>
                         <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Send a message to start the conversation!</Text>
@@ -375,7 +348,7 @@ export default function ChatScreen() {
                 ) : (
                     <FlatList
                         ref={flatListRef}
-                        data={messages}
+                        data={displayMessages}
                         keyExtractor={(item) => item.clientTempId || item.id.toString()}
                         renderItem={renderMessage}
                         contentContainerStyle={styles.listContent}
@@ -427,6 +400,16 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         position: 'relative',
+    },
+    offlineBanner: {
+        padding: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    offlineBannerText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
     centerContainer: {
         flex: 1,

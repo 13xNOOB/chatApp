@@ -31,6 +31,18 @@ export const storageService = {
     removeUser() {
         storage.remove(USER_KEY);
     },
+    saveOfflineQueue(userId: number, queue: any[]) {
+        storage.set(`offlineQueue_${userId}`, JSON.stringify(queue));
+    },
+    getOfflineQueue(userId: number): any[] {
+        const queueStr = storage.getString(`offlineQueue_${userId}`);
+        if (!queueStr) return [];
+        try {
+            return JSON.parse(queueStr);
+        } catch {
+            return [];
+        }
+    },
     clearAll() {
         storage.clearAll();
     }
